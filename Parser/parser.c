@@ -14482,6 +14482,7 @@ await_primary_rule(Parser *p)
 
 // Left-recursive
 // primary:
+//     | primary '?' '.' NAME
 //     | primary '.' NAME
 //     | primary genexp
 //     | primary '(' arguments? ')'
@@ -14543,6 +14544,48 @@ primary_raw(Parser *p)
     UNUSED(_start_lineno); // Only used by EXTRA macro
     int _start_col_offset = p->tokens[_mark]->col_offset;
     UNUSED(_start_col_offset); // Only used by EXTRA macro
+    { // primary '?' '.' NAME
+        if (p->error_indicator) {
+            p->level--;
+            return NULL;
+        }
+        D(fprintf(stderr, "%*c> primary[%d-%d]: %s\n", p->level, ' ', _mark, p->mark, "primary '?' '.' NAME"));
+        Token * _literal;
+        Token * _literal_1;
+        expr_ty a;
+        expr_ty b;
+        if (
+            (a = primary_rule(p))  // primary
+            &&
+            (_literal = _PyPegen_expect_token(p, 55))  // token='?'
+            &&
+            (_literal_1 = _PyPegen_expect_token(p, 23))  // token='.'
+            &&
+            (b = _PyPegen_name_token(p))  // NAME
+        )
+        {
+            D(fprintf(stderr, "%*c+ primary[%d-%d]: %s succeeded!\n", p->level, ' ', _mark, p->mark, "primary '?' '.' NAME"));
+            Token *_token = _PyPegen_get_last_nonnwhitespace_token(p);
+            if (_token == NULL) {
+                p->level--;
+                return NULL;
+            }
+            int _end_lineno = _token->end_lineno;
+            UNUSED(_end_lineno); // Only used by EXTRA macro
+            int _end_col_offset = _token->end_col_offset;
+            UNUSED(_end_col_offset); // Only used by EXTRA macro
+            _res = _PyAST_OptionalAttribute ( a , b -> v . Name . id , Load , EXTRA );
+            if (_res == NULL && PyErr_Occurred()) {
+                p->error_indicator = 1;
+                p->level--;
+                return NULL;
+            }
+            goto done;
+        }
+        p->mark = _mark;
+        D(fprintf(stderr, "%*c%s primary[%d-%d]: %s failed!\n", p->level, ' ',
+                  p->error_indicator ? "ERROR!" : "-", _mark, p->mark, "primary '?' '.' NAME"));
+    }
     { // primary '.' NAME
         if (p->error_indicator) {
             p->level--;
@@ -19567,6 +19610,7 @@ single_subscript_attribute_target_rule(Parser *p)
 
 // Left-recursive
 // t_primary:
+//     | t_primary '?' '.' NAME &t_lookahead
 //     | t_primary '.' NAME &t_lookahead
 //     | t_primary '[' slices ']' &t_lookahead
 //     | t_primary genexp &t_lookahead
@@ -19628,6 +19672,50 @@ t_primary_raw(Parser *p)
     UNUSED(_start_lineno); // Only used by EXTRA macro
     int _start_col_offset = p->tokens[_mark]->col_offset;
     UNUSED(_start_col_offset); // Only used by EXTRA macro
+    { // t_primary '?' '.' NAME &t_lookahead
+        if (p->error_indicator) {
+            p->level--;
+            return NULL;
+        }
+        D(fprintf(stderr, "%*c> t_primary[%d-%d]: %s\n", p->level, ' ', _mark, p->mark, "t_primary '?' '.' NAME &t_lookahead"));
+        Token * _literal;
+        Token * _literal_1;
+        expr_ty a;
+        expr_ty b;
+        if (
+            (a = t_primary_rule(p))  // t_primary
+            &&
+            (_literal = _PyPegen_expect_token(p, 55))  // token='?'
+            &&
+            (_literal_1 = _PyPegen_expect_token(p, 23))  // token='.'
+            &&
+            (b = _PyPegen_name_token(p))  // NAME
+            &&
+            _PyPegen_lookahead(1, t_lookahead_rule, p)
+        )
+        {
+            D(fprintf(stderr, "%*c+ t_primary[%d-%d]: %s succeeded!\n", p->level, ' ', _mark, p->mark, "t_primary '?' '.' NAME &t_lookahead"));
+            Token *_token = _PyPegen_get_last_nonnwhitespace_token(p);
+            if (_token == NULL) {
+                p->level--;
+                return NULL;
+            }
+            int _end_lineno = _token->end_lineno;
+            UNUSED(_end_lineno); // Only used by EXTRA macro
+            int _end_col_offset = _token->end_col_offset;
+            UNUSED(_end_col_offset); // Only used by EXTRA macro
+            _res = _PyAST_OptionalAttribute ( a , b -> v . Name . id , Load , EXTRA );
+            if (_res == NULL && PyErr_Occurred()) {
+                p->error_indicator = 1;
+                p->level--;
+                return NULL;
+            }
+            goto done;
+        }
+        p->mark = _mark;
+        D(fprintf(stderr, "%*c%s t_primary[%d-%d]: %s failed!\n", p->level, ' ',
+                  p->error_indicator ? "ERROR!" : "-", _mark, p->mark, "t_primary '?' '.' NAME &t_lookahead"));
+    }
     { // t_primary '.' NAME &t_lookahead
         if (p->error_indicator) {
             p->level--;
@@ -19827,7 +19915,7 @@ t_primary_raw(Parser *p)
     return _res;
 }
 
-// t_lookahead: '(' | '[' | '.'
+// t_lookahead: '(' | '[' | '.' | '?'
 static void *
 t_lookahead_rule(Parser *p)
 {
@@ -19896,6 +19984,25 @@ t_lookahead_rule(Parser *p)
         p->mark = _mark;
         D(fprintf(stderr, "%*c%s t_lookahead[%d-%d]: %s failed!\n", p->level, ' ',
                   p->error_indicator ? "ERROR!" : "-", _mark, p->mark, "'.'"));
+    }
+    { // '?'
+        if (p->error_indicator) {
+            p->level--;
+            return NULL;
+        }
+        D(fprintf(stderr, "%*c> t_lookahead[%d-%d]: %s\n", p->level, ' ', _mark, p->mark, "'?'"));
+        Token * _literal;
+        if (
+            (_literal = _PyPegen_expect_token(p, 55))  // token='?'
+        )
+        {
+            D(fprintf(stderr, "%*c+ t_lookahead[%d-%d]: %s succeeded!\n", p->level, ' ', _mark, p->mark, "'?'"));
+            _res = _literal;
+            goto done;
+        }
+        p->mark = _mark;
+        D(fprintf(stderr, "%*c%s t_lookahead[%d-%d]: %s failed!\n", p->level, ' ',
+                  p->error_indicator ? "ERROR!" : "-", _mark, p->mark, "'?'"));
     }
     _res = NULL;
   done:

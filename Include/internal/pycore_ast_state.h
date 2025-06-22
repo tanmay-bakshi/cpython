@@ -119,6 +119,7 @@ struct ast_state {
     PyObject *NotIn_type;
     PyObject *Not_singleton;
     PyObject *Not_type;
+    PyObject *OptionalAttribute_type;
     PyObject *Or_singleton;
     PyObject *Or_type;
     PyObject *ParamSpec_type;

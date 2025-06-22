@@ -851,6 +851,7 @@ await_primary[expr_ty] (memo):
     | primary
 
 primary[expr_ty]:
+    | a=primary '?' '.' b=NAME { _PyAST_OptionalAttribute(a, b->v.Name.id, Load, EXTRA) }
     | a=primary '.' b=NAME { _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA) }
     | a=primary b=genexp { _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA) }
     | a=primary '(' b=[arguments] ')' {
@@ -1127,6 +1128,7 @@ single_subscript_attribute_target[expr_ty]:
     | a=t_primary '[' b=slices ']' !t_lookahead { _PyAST_Subscript(a, b, Store, EXTRA) }
 
 t_primary[expr_ty]:
+    | a=t_primary '?' '.' b=NAME &t_lookahead { _PyAST_OptionalAttribute(a, b->v.Name.id, Load, EXTRA) }
     | a=t_primary '.' b=NAME &t_lookahead { _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA) }
     | a=t_primary '[' b=slices ']' &t_lookahead { _PyAST_Subscript(a, b, Load, EXTRA) }
     | a=t_primary b=genexp &t_lookahead {
@@ -1138,7 +1140,7 @@ t_primary[expr_ty]:
                  EXTRA) }
     | a=atom &t_lookahead { a }
 
-t_lookahead: '(' | '[' | '.'
+t_lookahead: '(' | '[' | '.' | '?'
 
 # Targets for del statements
 # --------------------------

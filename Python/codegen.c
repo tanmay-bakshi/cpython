@@ -5260,6 +5260,27 @@ codegen_visit_expr(compiler *c, expr_ty e)
     case Interpolation_kind:
         return codegen_interpolation(c, e);
     /* The following exprs can be assignment targets. */
+    case OptionalAttribute_kind: {
+        if (e->v.OptionalAttribute.ctx != Load) {
+            PyErr_SetString(PyExc_SystemError,
+                            "invalid context for OptionalAttribute");
+            return ERROR;
+        }
+        VISIT(c, expr, e->v.OptionalAttribute.value);
+        NEW_JUMP_TARGET_LABEL(c, none);
+        NEW_JUMP_TARGET_LABEL(c, end);
+        ADDOP_I(c, loc, COPY, 1);
+        ADDOP_LOAD_CONST(c, loc, Py_None);
+        ADDOP_I(c, loc, IS_OP, 0);
+        ADDOP_JUMP(c, loc, POP_JUMP_IF_TRUE, none);
+        ADDOP_NAME(c, loc, LOAD_ATTR, e->v.OptionalAttribute.attr, names);
+        ADDOP_JUMP(c, NO_LOCATION, JUMP_NO_INTERRUPT, end);
+        USE_LABEL(c, none);
+        ADDOP(c, loc, POP_TOP);
+        ADDOP_LOAD_CONST(c, loc, Py_None);
+        USE_LABEL(c, end);
+        break;
+    }
     case Attribute_kind:
         if (e->v.Attribute.ctx == Load) {
             int ret = can_optimize_super_call(c, e);

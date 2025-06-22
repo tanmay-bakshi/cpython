@@ -931,6 +931,15 @@ append_ast_attribute(PyUnicodeWriter *writer, expr_ty e)
 }
 
 static int
+append_ast_optional_attribute(PyUnicodeWriter *writer, expr_ty e)
+{
+    expr_ty v = e->v.OptionalAttribute.value;
+    APPEND_EXPR(v, PR_ATOM);
+    APPEND_STR("?.");
+    return PyUnicodeWriter_WriteStr(writer, e->v.OptionalAttribute.attr);
+}
+
+static int
 append_ast_slice(PyUnicodeWriter *writer, expr_ty e)
 {
     if (e->v.Slice.lower) {
@@ -1062,6 +1071,8 @@ append_ast_expr(PyUnicodeWriter *writer, expr_ty e, int level)
     case Interpolation_kind:
         return append_interpolation(writer, e);
     /* The following exprs can be assignment targets. */
+    case OptionalAttribute_kind:
+        return append_ast_optional_attribute(writer, e);
     case Attribute_kind:
         return append_ast_attribute(writer, e);
     case Subscript_kind:

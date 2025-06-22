@@ -221,6 +221,9 @@ validate_expr(expr_ty exp, expr_context_ty ctx)
     case Attribute_kind:
         actual_ctx = exp->v.Attribute.ctx;
         break;
+    case OptionalAttribute_kind:
+        actual_ctx = exp->v.OptionalAttribute.ctx;
+        break;
     case Subscript_kind:
         actual_ctx = exp->v.Subscript.ctx;
         break;
@@ -366,6 +369,9 @@ validate_expr(expr_ty exp, expr_context_ty ctx)
         }
         ret = 1;
         break;
+    case OptionalAttribute_kind:
+        ret = validate_expr(exp->v.OptionalAttribute.value, Load);
+        break;
     case Attribute_kind:
         ret = validate_expr(exp->v.Attribute.value, Load);
         break;
@@ -507,6 +513,7 @@ validate_pattern_match_value(expr_ty exp)
                             "unexpected constant inside of a literal pattern");
             return 0;
         case Attribute_kind:
+        case OptionalAttribute_kind:
             // Constants and attribute lookups are always permitted
             return 1;
         case UnaryOp_kind:

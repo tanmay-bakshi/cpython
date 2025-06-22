@@ -571,6 +571,9 @@ astfold_expr(expr_ty node_, PyArena *ctx_, _PyASTPreprocessState *state)
     case Attribute_kind:
         CALL(astfold_expr, expr_ty, node_->v.Attribute.value);
         break;
+    case OptionalAttribute_kind:
+        CALL(astfold_expr, expr_ty, node_->v.OptionalAttribute.value);
+        break;
     case Subscript_kind:
         CALL(astfold_expr, expr_ty, node_->v.Subscript.value);
         CALL(astfold_expr, expr_ty, node_->v.Subscript.slice);

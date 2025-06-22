@@ -2525,6 +2525,13 @@ symtable_visit_expr(struct symtable *st, expr_ty e)
         /* Nothing to do here. */
         break;
     /* The following exprs can be assignment targets. */
+    case OptionalAttribute_kind:
+        if (!check_name(st, e->v.OptionalAttribute.attr, LOCATION(e),
+                        e->v.OptionalAttribute.ctx)) {
+            return 0;
+        }
+        VISIT(st, expr, e->v.OptionalAttribute.value);
+        break;
     case Attribute_kind:
         if (!check_name(st, e->v.Attribute.attr, LOCATION(e), e->v.Attribute.ctx)) {
             return 0;
