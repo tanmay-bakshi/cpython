@@ -1917,7 +1917,13 @@ class BaseEventLoop(events.AbstractEventLoop):
     def _timer_handle_cancelled(self, handle):
         """Notification that a TimerHandle has been cancelled."""
         if handle._scheduled:
-            self._timer_cancelled_count += 1
+            try:
+                # Remove the handle from the scheduled heap immediately
+                self._scheduled = [h for h in self._scheduled if h is not handle]
+                if self._scheduled:
+                    heapq.heapify(self._scheduled)
+            finally:
+                handle._scheduled = False
 
     def _run_once(self):
         """Run one full iteration of the event loop.
@@ -1927,28 +1933,10 @@ class BaseEventLoop(events.AbstractEventLoop):
         'call_later' callbacks.
         """
 
-        sched_count = len(self._scheduled)
-        if (sched_count > _MIN_SCHEDULED_TIMER_HANDLES and
-            self._timer_cancelled_count / sched_count >
-                _MIN_CANCELLED_TIMER_HANDLES_FRACTION):
-            # Remove delayed calls that were cancelled if their number
-            # is too high
-            new_scheduled = []
-            for handle in self._scheduled:
-                if handle._cancelled:
-                    handle._scheduled = False
-                else:
-                    new_scheduled.append(handle)
-
-            heapq.heapify(new_scheduled)
-            self._scheduled = new_scheduled
-            self._timer_cancelled_count = 0
-        else:
-            # Remove delayed calls that were cancelled from head of queue.
-            while self._scheduled and self._scheduled[0]._cancelled:
-                self._timer_cancelled_count -= 1
-                handle = heapq.heappop(self._scheduled)
-                handle._scheduled = False
+        # Ensure the head of the queue doesn't contain cancelled handles.
+        while self._scheduled and self._scheduled[0]._cancelled:
+            handle = heapq.heappop(self._scheduled)
+            handle._scheduled = False
 
         timeout = None
         if self._ready or self._stopping:

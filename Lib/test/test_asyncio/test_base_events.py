@@ -2,7 +2,6 @@
 
 import concurrent.futures
 import errno
-import math
 import socket
 import sys
 import threading
@@ -419,78 +418,26 @@ class BaseEventLoopTests(test_utils.TestCase):
     def test__run_once_cancelled_event_cleanup(self):
         self.loop._process_events = mock.Mock()
 
-        self.assertTrue(
-            0 < base_events._MIN_CANCELLED_TIMER_HANDLES_FRACTION < 1.0)
-
         def cb():
             pass
 
-        # Set up one "blocking" event that will not be cancelled to
-        # ensure later cancelled events do not make it to the head
-        # of the queue and get cleaned.
-        not_cancelled_count = 1
-        self.loop.call_later(3000, cb)
+        active = self.loop.call_later(3000, cb)
+        cancelled1 = self.loop.call_later(3600, cb)
+        cancelled2 = self.loop.call_later(3600, cb)
 
-        # Add less than threshold (base_events._MIN_SCHEDULED_TIMER_HANDLES)
-        # cancelled handles, ensure they aren't removed
+        cancelled1.cancel()
+        cancelled2.cancel()
 
-        cancelled_count = 2
-        for x in range(2):
-            h = self.loop.call_later(3600, cb)
-            h.cancel()
-
-        # Add some cancelled events that will be at head and removed
-        cancelled_count += 2
-        for x in range(2):
-            h = self.loop.call_later(100, cb)
-            h.cancel()
-
-        # This test is invalid if _MIN_SCHEDULED_TIMER_HANDLES is too low
-        self.assertLessEqual(cancelled_count + not_cancelled_count,
-            base_events._MIN_SCHEDULED_TIMER_HANDLES)
-
-        self.assertEqual(self.loop._timer_cancelled_count, cancelled_count)
+        # Cancelled handles should be removed immediately
+        self.assertNotIn(cancelled1, self.loop._scheduled)
+        self.assertNotIn(cancelled2, self.loop._scheduled)
+        self.assertIn(active, self.loop._scheduled)
+        self.assertEqual(self.loop._timer_cancelled_count, 0)
 
         self.loop._run_once()
 
-        cancelled_count -= 2
-
-        self.assertEqual(self.loop._timer_cancelled_count, cancelled_count)
-
-        self.assertEqual(len(self.loop._scheduled),
-            cancelled_count + not_cancelled_count)
-
-        # Need enough events to pass _MIN_CANCELLED_TIMER_HANDLES_FRACTION
-        # so that deletion of cancelled events will occur on next _run_once
-        add_cancel_count = int(math.ceil(
-            base_events._MIN_SCHEDULED_TIMER_HANDLES *
-            base_events._MIN_CANCELLED_TIMER_HANDLES_FRACTION)) + 1
-
-        add_not_cancel_count = max(base_events._MIN_SCHEDULED_TIMER_HANDLES -
-            add_cancel_count, 0)
-
-        # Add some events that will not be cancelled
-        not_cancelled_count += add_not_cancel_count
-        for x in range(add_not_cancel_count):
-            self.loop.call_later(3600, cb)
-
-        # Add enough cancelled events
-        cancelled_count += add_cancel_count
-        for x in range(add_cancel_count):
-            h = self.loop.call_later(3600, cb)
-            h.cancel()
-
-        # Ensure all handles are still scheduled
-        self.assertEqual(len(self.loop._scheduled),
-            cancelled_count + not_cancelled_count)
-
-        self.loop._run_once()
-
-        # Ensure cancelled events were removed
-        self.assertEqual(len(self.loop._scheduled), not_cancelled_count)
-
-        # Ensure only uncancelled events remain scheduled
-        self.assertTrue(all([not x._cancelled for x in self.loop._scheduled]))
+        # Only the active handle should remain scheduled
+        self.assertEqual(self.loop._scheduled, [active])
 
     def test_run_until_complete_type_error(self):
         self.assertRaises(TypeError,
