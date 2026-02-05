@@ -652,6 +652,13 @@ Miscellaneous options
 
      .. versionadded:: 3.13
 
+   * :samp:`-X gil-debug[=0,1]` enables (1) or disables (0) GIL requirement
+     debug checks. When enabled, importing an extension module that requires
+     the GIL logs a stack trace if the GIL is forced on, or aborts with a fatal
+     error if the GIL is not forced on. This option is only available in builds
+     configured with :option:`--disable-gil`. See also
+     :envvar:`PYTHON_GIL_DEBUG`.
+
    * :samp:`-X thread_inherit_context={0,1}` causes :class:`~threading.Thread`
      to, by default, use a copy of context of the caller of
      ``Thread.start()`` when starting.  Otherwise, threads will start
@@ -1279,6 +1286,12 @@ conflict.
    precedence over this variable, and :ref:`whatsnew313-free-threaded-cpython`.
 
    .. versionadded:: 3.13
+
+.. envvar:: PYTHON_GIL_DEBUG
+
+   If this variable is set to ``1``, enables GIL requirement debug checks in
+   free-threaded builds. Use ``0`` to disable. See also the
+   :option:`-X gil-debug <-X>` command-line option.
 
 .. envvar:: PYTHON_THREAD_INHERIT_CONTEXT
 

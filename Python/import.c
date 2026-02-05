@@ -18,6 +18,7 @@
 #include "pycore_pymem.h"         // _PyMem_DefaultRawFree()
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
 #include "pycore_sysmodule.h"     // _PySys_ClearAttrString()
+#include "pycore_traceback.h"     // _Py_DumpTraceback()
 #include "pycore_time.h"          // _PyTime_AsMicroseconds()
 #include "pycore_unicodeobject.h" // _PyUnicode_AsUTF8NoNUL()
 #include "pycore_weakref.h"       // _PyWeakref_GET_REF()
@@ -1546,10 +1547,38 @@ _PyImport_CheckSubinterpIncompatibleExtensionAllowed(const char *name)
 }
 
 #ifdef Py_GIL_DISABLED
+static void
+gil_debug_log(PyThreadState *tstate, PyObject *module_name)
+{
+    PySys_FormatStderr(
+        "GIL debug: module '%U' requires the GIL; dumping stack\n",
+        module_name);
+    _Py_DumpTraceback(fileno(stderr), tstate);
+}
+
+static void _Py_NO_RETURN
+gil_debug_fatal(PyThreadState *tstate, PyObject *module_name)
+{
+    const char *name = "<unknown>";
+    if (module_name != NULL && PyUnicode_Check(module_name)) {
+        const char *utf8 = _PyUnicode_AsUTF8NoNUL(module_name);
+        if (utf8 != NULL) {
+            name = utf8;
+        }
+        else {
+            _PyErr_Clear(tstate);
+        }
+    }
+    _Py_FatalErrorFormat(__func__,
+                         "GIL debug: module '%s' requires the GIL while it is disabled",
+                         name);
+}
+
 int
 _PyImport_CheckGILForModule(PyObject* module, PyObject *module_name)
 {
     PyThreadState *tstate = _PyThreadState_GET();
+    const PyConfig *config = _PyInterpreterState_GetConfig(tstate->interp);
     if (module == NULL) {
         _PyEval_DisableGIL(tstate);
         return 0;
@@ -1557,6 +1586,14 @@ _PyImport_CheckGILForModule(PyObject* module, PyObject *module_name)
 
     if (!PyModule_Check(module) ||
         ((PyModuleObject *)module)->md_gil == Py_MOD_GIL_USED) {
+        if (config->gil_debug != 0) {
+            if (config->enable_gil == _PyConfig_GIL_ENABLE) {
+                gil_debug_log(tstate, module_name);
+            }
+            else {
+                gil_debug_fatal(tstate, module_name);
+            }
+        }
         if (_PyEval_EnableGILPermanent(tstate)) {
             int warn_result = PyErr_WarnFormat(
                 PyExc_RuntimeWarning,
@@ -1572,7 +1609,6 @@ _PyImport_CheckGILForModule(PyObject* module, PyObject *module_name)
             }
         }
 
-        const PyConfig *config = _PyInterpreterState_GetConfig(tstate->interp);
         if (config->enable_gil == _PyConfig_GIL_DEFAULT && config->verbose) {
             PySys_FormatStderr("# loading module '%U', which requires the GIL\n",
                                module_name);

@@ -190,6 +190,7 @@ typedef struct PyConfig {
 #ifdef Py_GIL_DISABLED
     int enable_gil;
     int tlbc_enabled;
+    int gil_debug;
 #endif
 
     /* --- Path configuration inputs ------------ */

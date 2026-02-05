@@ -20,6 +20,11 @@ from test.support.script_helper import (
 )
 from textwrap import dedent
 
+try:
+    import _testmultiphase
+except ImportError:
+    _testmultiphase = None
+
 
 if not support.has_subprocess_support:
     raise unittest.SkipTest("test module requires subprocess")
@@ -929,6 +934,45 @@ class CmdLineTest(unittest.TestCase):
                 self.assertEqual(proc.returncode, 0, proc)
                 self.assertEqual(proc.stdout.rstrip(), expected)
                 self.assertEqual(proc.stderr, '')
+
+    @unittest.skipUnless(support.Py_GIL_DISABLED,
+                         "only supported in Py_GIL_DISABLED builds")
+    @unittest.skipIf(_testmultiphase is None,
+                     "test requires _testmultiphase module")
+    def test_gil_debug_requires_extension(self):
+        script = dedent(f"""
+            import importlib.util
+            from importlib.machinery import ExtensionFileLoader
+            import _testmultiphase
+
+            name = "_testmultiphase_nonmodule"
+            filename = {_testmultiphase.__file__!r}
+            loader = ExtensionFileLoader(name, filename)
+            spec = importlib.util.spec_from_loader(name, loader)
+            module = importlib.util.module_from_spec(spec)
+            loader.exec_module(module)
+            """)
+
+        rc, out, err = assert_python_ok(
+            '-X', 'gil=1', '-X', 'gil-debug', '-c', script, __isolated=False)
+        self.assertIn(
+            b"GIL debug: module '_testmultiphase_nonmodule' requires the GIL",
+            err)
+
+        rc, out, err = assert_python_ok(
+            '-X', 'gil=1', '-c', script, __isolated=False,
+            PYTHON_GIL_DEBUG='1')
+        self.assertIn(
+            b"GIL debug: module '_testmultiphase_nonmodule' requires the GIL",
+            err)
+
+        rc, out, err = assert_python_failure(
+            '-X', 'gil=0', '-X', 'gil-debug', '-c', script, __isolated=False)
+        self.assertIn(b"Fatal Python error", err)
+        self.assertIn(
+            b"GIL debug: module '_testmultiphase_nonmodule' requires the GIL "
+            b"while it is disabled",
+            err)
 
     def test_python_asyncio_debug(self):
         code = "import asyncio; print(asyncio.new_event_loop().get_debug())"

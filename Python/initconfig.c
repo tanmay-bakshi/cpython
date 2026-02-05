@@ -145,6 +145,7 @@ static const PyConfigSpec PYCONFIG_SPEC[] = {
 #ifdef Py_GIL_DISABLED
     SPEC(enable_gil, INT, READ_ONLY, NO_SYS),
     SPEC(tlbc_enabled, INT, READ_ONLY, NO_SYS),
+    SPEC(gil_debug, INT, READ_ONLY, NO_SYS),
 #endif
     SPEC(faulthandler, BOOL, READ_ONLY, NO_SYS),
     SPEC(filesystem_encoding, WSTR, READ_ONLY, NO_SYS),
@@ -312,6 +313,8 @@ The following implementation-specific options are available:\n\
 "
 #ifdef Py_GIL_DISABLED
 "-X gil=[0|1]: enable (1) or disable (0) the GIL; also PYTHON_GIL\n"
+"-X gil-debug[=0|1]: enable (1) or disable (0) GIL debug checks; also\n\
+         PYTHON_GIL_DEBUG\n"
 #endif
 "\
 -X importtime[=2]: show how long each import takes; use -X importtime=2 to\n\
@@ -415,6 +418,7 @@ static const char usage_envvars[] =
 "                  (-X frozen_modules)\n"
 #ifdef Py_GIL_DISABLED
 "PYTHON_GIL      : when set to 0, disables the GIL (-X gil)\n"
+"PYTHON_GIL_DEBUG: when set to 1, enables GIL debug checks (-X gil-debug)\n"
 #endif
 "PYTHONINSPECT   : inspect interactively after running script (-i)\n"
 "PYTHONINTMAXSTRDIGITS: limit the size of int<->str conversions;\n"
@@ -1062,6 +1066,7 @@ _PyConfig_InitCompatConfig(PyConfig *config)
 #ifdef Py_GIL_DISABLED
     config->enable_gil = _PyConfig_GIL_DEFAULT;
     config->tlbc_enabled = 1;
+    config->gil_debug = 0;
 #endif
 }
 
@@ -2048,6 +2053,45 @@ config_init_tlbc(PyConfig *config)
 }
 
 static PyStatus
+config_init_gil_debug(PyConfig *config)
+{
+#ifdef Py_GIL_DISABLED
+    const char *env = config_get_env(config, "PYTHON_GIL_DEBUG");
+    if (env != NULL) {
+        int enabled;
+        if (_Py_str_to_int(env, &enabled) < 0 || enabled < 0 || enabled > 1) {
+            return _PyStatus_ERR(
+                "PYTHON_GIL_DEBUG=N: N is missing or invalid");
+        }
+        config->gil_debug = enabled;
+    }
+
+    const wchar_t *xoption = config_get_xoption(config, L"gil-debug");
+    if (xoption != NULL) {
+        int enabled = 1;
+        const wchar_t *sep = wcschr(xoption, L'=');
+        if (sep != NULL) {
+            if (sep[1] == L'\0') {
+                return _PyStatus_ERR(
+                    "-X gil-debug=n: n is missing or invalid");
+            }
+            if (config_wstr_to_int(sep + 1, &enabled) < 0
+                || enabled < 0
+                || enabled > 1)
+            {
+                return _PyStatus_ERR(
+                    "-X gil-debug=n: n is missing or invalid");
+            }
+        }
+        config->gil_debug = enabled;
+    }
+    return _PyStatus_OK();
+#else
+    return _PyStatus_OK();
+#endif
+}
+
+static PyStatus
 config_init_perf_profiling(PyConfig *config)
 {
     int active = 0;
@@ -2370,6 +2414,11 @@ config_read_complex_options(PyConfig *config)
     }
 
     status = config_init_tlbc(config);
+    if (_PyStatus_EXCEPTION(status)) {
+        return status;
+    }
+
+    status = config_init_gil_debug(config);
     if (_PyStatus_EXCEPTION(status)) {
         return status;
     }
